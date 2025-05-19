@@ -1,0 +1,88 @@
+version: '3'
+
+services:
+  api:
+    container_name: "api"
+    build:
+      dockerfile: ./containers/api/Dockerfile
+      context: ./
+    command: gunicorn -w 4 -b 0.0.0.0:5000 app:app
+    volumes:
+      - .:/app
+    expose:
+      - 5000
+    networks:
+      - network
+    depends_on:
+      - db
+    links:
+      - db
+    restart: always
+
+  db:
+    image: mysql:8.0.29
+    container_name: "api_db"
+    ports:
+      - '3305:3306'
+    environment:
+      MYSQL_DATABASE: 'leadsdoit_db'
+      MYSQL_ROOT: 'root'
+      MYSQL_ROOT_PASSWORD: 'password'
+    volumes:
+      - ./containers/mysql/data:/var/lib/mysql
+    networks:
+      - network
+
+  nginx:
+    build: ./containers/nginx
+    volumes:
+      - .:/app
+    ports:
+      - 1763:80
+    depends_on:
+      - api
+    networks:
+      - network
+
+
+  celery:
+    container_name: "celery_app"
+    build:
+      dockerfile: ./containers/api/Dockerfile
+      context: ./
+    volumes:
+      - .:/app
+    command: celery -A libs.tasks.celery beat -l info
+
+    depends_on:
+      - api
+      - redis
+    networks:
+      - network
+
+  worker:
+    container_name: "worker_app"
+    build:
+      dockerfile: ./containers/api/Dockerfile
+      context: ./
+    volumes:
+      - .:/app
+    command: celery -A libs.tasks.celery worker -l info
+    depends_on:
+      - api
+      - redis
+    links:
+      - celery
+    networks:
+      - network
+
+  redis:
+    container_name: "redis_app"
+    image: "redis:alpine"
+    restart: always
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge

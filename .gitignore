@@ -1,0 +1,10 @@
+.env.local
+.idea/
+containers/mysql/*
+.venv/
+celerybeat-schedule
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
